@@ -16,15 +16,41 @@ interface DaySchedule {
   lessons: Lesson[];
 }
 
+const API_URL = 'https://functions.poehali.dev/46a587be-7147-46f2-923f-294d13c1e856';
+
 const Index = () => {
   const [currentDay, setCurrentDay] = useState<number>(0);
+  const [schedule, setSchedule] = useState<DaySchedule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const today = new Date().getDay();
     setCurrentDay(today === 0 ? 6 : today - 1);
   }, []);
 
-  const schedule: DaySchedule[] = [
+  useEffect(() => {
+    fetchSchedule();
+    const interval = setInterval(fetchSchedule, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchSchedule = async () => {
+    try {
+      const response = await fetch(API_URL);
+      if (!response.ok) throw new Error('Ошибка загрузки расписания');
+      const data = await response.json();
+      setSchedule(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка загрузки');
+      setSchedule(fallbackSchedule);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fallbackSchedule: DaySchedule[] = [
     {
       day: 'Понедельник',
       color: 'monday',
@@ -105,8 +131,22 @@ const Index = () => {
             <Icon name="Calendar" size={20} />
             Учебная неделя
           </p>
+          {error && (
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-800 rounded-lg text-sm">
+              <Icon name="AlertCircle" size={16} />
+              {error} — используется резервное расписание
+            </div>
+          )}
         </div>
 
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Загрузка расписания...</p>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {schedule.map((dayData, dayIndex) => (
             <Card 
@@ -173,6 +213,7 @@ const Index = () => {
             </Card>
           ))}
         </div>
+        )}
 
         <div className="mt-8 text-center">
           <Card className="inline-block p-4 bg-white/80 backdrop-blur-sm">
